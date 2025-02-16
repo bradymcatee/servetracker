@@ -227,34 +227,46 @@ def train(args):
     
     # Create model
     model = TrackNetModel().to(device)
-    model.apply(init_weights)
+    
+    # Load checkpoint if specified
+    start_epoch = 0
+    if args.resume_from:
+        logger.info(f'Loading checkpoint from {args.resume_from}')
+        checkpoint = torch.load(args.resume_from, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer = Adadelta(model.parameters(), lr=LEARNING_RATE, rho=0.95, eps=1e-8, weight_decay=1e-4)
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch'] + 1
+        history = checkpoint['history']
+        best_val_acc = max(history['val_acc'])
+        logger.info(f'Resuming from epoch {start_epoch} with best validation accuracy: {best_val_acc:.4f}')
+    else:
+        model.apply(init_weights)
+        optimizer = Adadelta(model.parameters(), lr=LEARNING_RATE, rho=0.95, eps=1e-8, weight_decay=1e-4)
+        best_val_acc = 0
+        history = {
+            'train_loss': [],
+            'train_acc': [],
+            'val_loss': [],
+            'val_acc': []
+        }
     
     # Loss and optimizer
     criterion = focal_bce_loss
-    optimizer = Adadelta(model.parameters(), lr=LEARNING_RATE, rho=0.95, eps=1e-8, weight_decay=1e-4)
-    
-    # Training history
-    history = {
-        'train_loss': [],
-        'train_acc': [],
-        'val_loss': [],
-        'val_acc': []
-    }
     
     # Training loop
     logger.info('Starting training...')
     logger.info(f'Training device: {device}')
     logger.info(f'Batch size: {BATCH_SIZE}')
+    logger.info(f'Learning rate: {LEARNING_RATE}')
+    logger.info(f'Total epochs: {NUM_EPOCHS}')
     logger.info(f'Steps per epoch: {STEPS_PER_EPOCH}')
     
-    for epoch in range(NUM_EPOCHS):
-        # Train
+    for epoch in range(start_epoch, NUM_EPOCHS):
         train_loss, train_acc = train_epoch(
-            model, train_loader, criterion, optimizer,
-            device, epoch, logger, dirs['visualizations']
+            model, train_loader, criterion, optimizer, device, epoch, logger, dirs['visualizations']
         )
         
-        # Validate
         logger.info('Running validation...')
         val_loss, val_acc = validate(model, val_loader, criterion, device)
         
@@ -269,18 +281,30 @@ def train(args):
         logger.info(f'Train Loss: {train_loss:.4f}, Train Accuracy: {train_acc:.4f}')
         logger.info(f'Val Loss: {val_loss:.4f}, Val Accuracy: {val_acc:.4f}')
         
-        # Save checkpoint
-        if (epoch + 1) % args.checkpoint_freq == 0:
-            checkpoint_path = dirs['checkpoints'] / f'model_epoch_{epoch+1}.pth'
+        # Save best model
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            # Save best model checkpoint
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'train_loss': train_loss,
-                'val_loss': val_loss,
+                'train_acc': train_acc,
+                'val_acc': val_acc,
                 'history': history
-            }, checkpoint_path)
-            logger.info(f'Saved checkpoint to {checkpoint_path}')
+            }, dirs['checkpoints'] / 'model_best.pth')
+            logger.info(f'Saved new best model with validation accuracy: {val_acc:.4f}')
+            
+        # Save regular epoch checkpoint
+        if (epoch + 1) % args.checkpoint_freq == 0:
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'train_acc': train_acc,
+                'val_acc': val_acc,
+                'history': history
+            }, dirs['checkpoints'] / f'model_epoch_{epoch+1}.pth')
         
         # Save training plot
         plot_path = dirs['visualizations'] / 'training_history.png'
@@ -298,6 +322,8 @@ def main():
                       help='Frequency of saving checkpoints (epochs)')
     parser.add_argument('--num_workers', type=int, default=4,
                       help='Number of data loading workers')
+    parser.add_argument('--resume_from', type=str,
+                      help='Path to checkpoint to resume training from')
     
     args = parser.parse_args()
     train(args)

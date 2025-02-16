@@ -53,10 +53,10 @@ def save_sample_predictions(inputs, outputs, targets, epoch, batch_idx, output_d
     # Create figure with subplots
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
     
-    # Get first sample from batch
-    input_frames = inputs[0].cpu().numpy()  # [C, H, W]
-    pred_heatmap = outputs[0, 0].cpu().numpy()  # [H, W]
-    target_heatmap = targets[0, 0].cpu().numpy()  # [H, W]
+    # Get first sample from batch and detach from computation graph
+    input_frames = inputs[0].detach().cpu().numpy()  # [C, H, W]
+    pred_heatmap = outputs[0, 0].detach().cpu().numpy()  # [H, W]
+    target_heatmap = targets[0, 0].detach().cpu().numpy()  # [H, W]
     
     # Get middle frame from input sequence
     middle_frame = input_frames[3:6].transpose(1, 2, 0)  # Get middle frame, convert to [H, W, C]
