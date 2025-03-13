@@ -11,7 +11,10 @@ def preprocess_video(video_path, output_path=None, target_fps=30):
     # Get actual FPS from video
     fps = int(cap.get(cv2.CAP_PROP_FPS))
     if fps == 0:
-        fps = target_fps
+        print("Warning: FPS could not be determined, defaulting to 30.")
+        fps = target_fps  # Fallback to target FPS
+    
+    print(f"Video FPS: {fps}")  # Log the FPS for debugging
     
     # Get original video properties
     orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -21,10 +24,6 @@ def preprocess_video(video_path, output_path=None, target_fps=30):
     scale = min(640/orig_width, 360/orig_height)
     new_width = int(orig_width * scale)
     new_height = int(orig_height * scale)
-    
-    # Determine if rotation is needed (for iPhone videos)
-    file_ext = Path(video_path).suffix.lower()
-    needs_rotation = file_ext == '.mov'
     
     if output_path:
         # Setup video writer
@@ -41,10 +40,6 @@ def preprocess_video(video_path, output_path=None, target_fps=30):
         ret, frame = cap.read()
         if not ret:
             break
-            
-        # Rotate if it's an iPhone video
-        if needs_rotation:
-            frame = cv2.rotate(frame, cv2.ROTATE_180)
         
         # Resize maintaining aspect ratio
         frame = cv2.resize(frame, (new_width, new_height))
