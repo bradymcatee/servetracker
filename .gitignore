@@ -71,6 +71,8 @@ Thumbs.db
 *.avi
 *.mov
 *.MOV
+*.pdf
+*.pptx
 
 # Jupyter Notebook
 .ipynb_checkpoints

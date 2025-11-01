@@ -72,18 +72,22 @@ class TennisDataset(Dataset):
         for _, frame_data in sequence['frames'].iterrows():
             frame_path = sequence['clip_dir'] / f"{frame_data['File_Name']}"
             frame = cv2.imread(str(frame_path))
-            frame = cv2.resize(frame, self.frame_size)
+            frame = cv2.resize(frame, (self.frame_size[1], self.frame_size[0]))
             frames.append(frame)
         
         # Stack frames into input tensor
         input_tensor = np.concatenate(frames, axis=2)  # Stack along channel dimension
         
         # Create target heatmap using Gaussian
-        target = np.zeros(self.frame_size[::-1], dtype=np.float32)  # height, width
-        target_x = int(sequence['target_frame']['X'] * self.frame_size[0] / 1280)
-        target_y = int(sequence['target_frame']['Y'] * self.frame_size[1] / 720)
+        target = np.zeros((self.frame_size[0], self.frame_size[1]), dtype=np.float32)
+        x_scale = self.frame_size[1] / 1280
+        y_scale = self.frame_size[0] / 720
+        target_x = int(sequence['target_frame']['X'] * x_scale)
+        target_y = int(sequence['target_frame']['Y'] * y_scale)
+        target_x = np.clip(target_x, 0, self.frame_size[1] - 1)
+        target_y = np.clip(target_y, 0, self.frame_size[0] - 1)
         target = self.create_gaussian_heatmap(
-            size=self.frame_size[::-1],  # height, width
+            size=(self.frame_size[0], self.frame_size[1]),
             center=(target_x, target_y),
             sigma=5
         )

@@ -13,7 +13,7 @@ from utils.homography import compute_homography, compute_velocity, filter_speeds
 def load_model(model_path, device):
     """Load trained TrackNet model"""
     model = TrackNetModel().to(device)
-    checkpoint = torch.load(model_path, map_location=device, weights_only=True)
+    checkpoint = torch.load(model_path, map_location=device)
     
     # Extract model state dict if it's wrapped in a checkpoint
     if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
